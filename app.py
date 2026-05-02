@@ -1,6 +1,7 @@
 import asyncio
 import os
-from fastapi import FastAPI, Form
+import traceback
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from playwright.async_api import async_playwright
 
@@ -12,7 +13,7 @@ async def home():
     return """
     <html>
     <head>
-        <title>Anime Scraper Tool</title>
+        <title>Anime Scraper</title>
     </head>
     <body style="font-family:Arial;padding:20px;">
         <h2>Anime Episode Scraper</h2>
@@ -67,20 +68,40 @@ async def scrape_all(url: str, name: str, episodes: int):
         await browser.close()
         return results
 
-# ---------------- API ENDPOINT ----------------
-@app.post("/scrape")
-async def scrape(url: str = Form(...), name: str = Form(...), episodes: int = Form(...)):
-    data = await scrape_all(url, name, episodes)
+# ---------------- FIXED SCRAPE ROUTE ----------------
+@app.api_route("/scrape", methods=["GET", "POST"])
+async def scrape(request: Request):
+    try:
+        if request.method == "GET":
+            return {
+                "status": "error",
+                "message": "Use homepage form (/) or POST request"
+            }
 
-    return JSONResponse({
-        "name": name,
-        "total_episodes": episodes,
-        "data": data
-    })
+        form = await request.form()
 
-# ---------------- FIX FOR RENDER ----------------
+        url = form.get("url")
+        name = form.get("name")
+        episodes = int(form.get("episodes"))
+
+        data = await scrape_all(url, name, episodes)
+
+        return JSONResponse({
+            "status": "success",
+            "name": name,
+            "episodes": episodes,
+            "data": data
+        })
+
+    except Exception as e:
+        return JSONResponse({
+            "status": "error",
+            "message": str(e),
+            "trace": traceback.format_exc()
+        })
+
+# ---------------- RENDER FIX ----------------
 if __name__ == "__main__":
     import uvicorn
-
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
