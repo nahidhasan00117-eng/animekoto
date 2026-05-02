@@ -1,11 +1,17 @@
 import asyncio
 import os
 import traceback
+
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from playwright.async_api import async_playwright
 
 app = FastAPI()
+
+# ---------------- AUTO FIX PLAYWRIGHT BROWSER ----------------
+# This fixes "Executable doesn't exist" on Render
+os.system("playwright install chromium")
+
 
 # ---------------- HOME PAGE ----------------
 @app.get("/", response_class=HTMLResponse)
@@ -13,7 +19,7 @@ async def home():
     return """
     <html>
     <head>
-        <title>Anime Scraper</title>
+        <title>Anime Scraper Tool</title>
     </head>
     <body style="font-family:Arial;padding:20px;">
         <h2>Anime Episode Scraper</h2>
@@ -34,6 +40,7 @@ async def home():
     </body>
     </html>
     """
+
 
 # ---------------- SCRAPER FUNCTION ----------------
 async def scrape_all(url: str, name: str, episodes: int):
@@ -68,14 +75,16 @@ async def scrape_all(url: str, name: str, episodes: int):
         await browser.close()
         return results
 
-# ---------------- FIXED SCRAPE ROUTE ----------------
+
+# ---------------- SCRAPE ROUTE (FIXED GET + POST) ----------------
 @app.api_route("/scrape", methods=["GET", "POST"])
 async def scrape(request: Request):
     try:
+        # If opened directly in browser
         if request.method == "GET":
             return {
                 "status": "error",
-                "message": "Use homepage form (/) or POST request"
+                "message": "Open homepage (/) and use the form"
             }
 
         form = await request.form()
@@ -89,7 +98,7 @@ async def scrape(request: Request):
         return JSONResponse({
             "status": "success",
             "name": name,
-            "episodes": episodes,
+            "total_episodes": episodes,
             "data": data
         })
 
@@ -100,8 +109,10 @@ async def scrape(request: Request):
             "trace": traceback.format_exc()
         })
 
-# ---------------- RENDER FIX ----------------
+
+# ---------------- RENDER START FIX ----------------
 if __name__ == "__main__":
     import uvicorn
+
     port = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port)
